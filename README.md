@@ -20,15 +20,15 @@ A task (or thread in other OSes) is the thing that does the work. It's like your
 
 ```c++
 class MyFirstTask :
-	public frt::Task<MyFirstTask>
+    public frt::Task<MyFirstTask>
 {
 public:
-	bool run()
-	{
-		// Do something meaningful here...
+    bool run()
+    {
+        // Do something meaningful here...
 
-		return true;
-	}
+        return true;
+    }
 };
 ```
 
@@ -45,15 +45,15 @@ Things you can only do inside your task class:
 
 Functions that can be called from outside:
 * `start(priority)`: Start the task with a certain priority (higher number = higher priority).
-  - Note that there's a limited number of available priorities. Stock Arduino_FreeRTOS_Library supports 0-3, my [`minimal-static`](https://github.com/Floessie/Arduino_FreeRTOS_Library/tree/minimal-static) branch 0-8.
+  - Note that there's a limited number of available priorities. Stock Arduino_FreeRTOS_Library supports 0-3, my [`minimal-static`](https://github.com/Floessie/Arduino_FreeRTOS_Library/tree/minimal-static) branch 0-7.
   - The idle task that executes `loop()` has priority 0.
 * `stop()`: Stops the task.
   - If you want to stop from within your task, return `false` from `run()`. Don't call `stop()`!
 * `isRunning()`: Returns true if the task is started.
 * `getUsedStackSize()`: Each task has a buffer that is used for storing function local variables and return addresses. This function lets you determine the maximum number of bytes used (so far).
-  - Only valid while the tast is running.
+  - Only valid while the task is running.
   - Interrupts are also served in a task's context, so the result may vary. Don't be too conservative.
-* `post()`: Wake task via *direct to task* notification.
+* `post()`: Wake task via *direct to task notification*.
 * `preparePostFromInterrupt()`: When posting from an interrupt, this function must be called when entering the ISR.
 * `postFromInterrupt()`: Like `post()` but from inside an ISR.
 * `finalizePostFromInterrupt()`: This function must be called last in the ISR whether you called `postFromInterrupt()` or not.
