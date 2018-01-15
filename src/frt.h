@@ -105,17 +105,25 @@ namespace frt
 				return false;
 			}
 
+			taskENTER_CRITICAL();
 			do_stop = true;
 			while (running) {
+				taskEXIT_CRITICAL();
 				yield();
+				taskENTER_CRITICAL();
 			}
+			taskEXIT_CRITICAL();
 
 			return true;
 		}
 
 		bool isRunning() const
 		{
-			return running;
+			taskENTER_CRITICAL();
+			const bool res = running;
+			taskEXIT_CRITICAL();
+
+			return res;
 		}
 
 		unsigned int getUsedStackSize() const
@@ -206,10 +214,23 @@ namespace frt
 		{
 			Task* const self = static_cast<Task*>(data);
 
+			bool do_stop;
+
+			taskENTER_CRITICAL();
 			self->running = true;
-			while (static_cast<T*>(self)->run() && !self->do_stop);
+			do_stop = self->do_stop;
+			taskEXIT_CRITICAL();
+
+			while (!do_stop && static_cast<T*>(self)->run()) {
+				taskENTER_CRITICAL();
+				do_stop = self->do_stop;
+				taskEXIT_CRITICAL();
+			}
+
+			taskENTER_CRITICAL();
 			self->do_stop = false;
 			self->running = false;
+			taskEXIT_CRITICAL();
 
 			const TaskHandle_t handle_copy = self->handle;
 			self->handle = nullptr;
