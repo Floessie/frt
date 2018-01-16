@@ -57,3 +57,15 @@ Functions that can be called from outside:
 * `preparePostFromInterrupt()`: When posting from an interrupt, this function must be called when entering the ISR.
 * `postFromInterrupt()`: Like `post()` but from inside an ISR.
 * `finalizePostFromInterrupt()`: This function must be called last in the ISR whether you called `postFromInterrupt()` or not.
+
+### Mutex
+
+Mutexes protect code sections from being accessed concurrently by multiple tasks. One task *locks* the mutex, so that another task has to wait on the mutex for the first task to unlock it. That's not busy waiting: The scheduler kicks in and resumes another task, most probably the one who is locking the mutex, because FreeRTOS supports [priority inheritance](https://www.freertos.org/Real-time-embedded-RTOS-mutexes.html). When the first task unlocks the mutex, other tasks waiting on it can proceed.
+
+Normally you would protect variable accesses and keep the locked times short. But they can as well be used to guard an action that should not be interrupted or a resource that has to finish something before something new is started. Keep an eye on the locking sequence when multiple mutexes are involved: It's easy to shoot oneself in the foot and provoke a [deadlock](https://en.wikipedia.org/wiki/Deadlock). To avoid that either go for broader locking with fewer mutexes, or avoid nested locking by restructuring the code.
+
+Mutexes in FreeRTOS can't be used from ISRs. Use (binary) semaphores in that case.
+
+A `frt::Mutex` has a dead simple interface:
+* `lock()`: Locks the mutex.
+* `unlock()`: Unlocks the mutex.
