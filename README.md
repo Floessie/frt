@@ -47,8 +47,9 @@ Functions that can be called from outside:
 * `start(priority)`: Start the task with a certain priority (higher number = higher priority).
   - Note that there's a limited number of available priorities. Stock Arduino_FreeRTOS_Library supports 0-3, my [`minimal-static`](https://github.com/Floessie/Arduino_FreeRTOS_Library/tree/minimal-static) branch 0-7.
   - The idle task that executes `loop()` has priority 0.
-* `stop()`: Stops the task.
+* `stop()`: Stops the task. This blocks until the task left its `run()` function, so if you're blocking there indefinitely, `stop()` will never return.
   - If you want to stop from within your task, return `false` from `run()`. Don't call `stop()`!
+  - Stopping a task is harder than you might think. Be sure to block with timeouts (on semaphores and queues) in `run()`.
 * `isRunning()`: Returns true if the task is started.
 * `getUsedStackSize()`: Each task has a buffer that is used for storing function local variables and return addresses. This function lets you determine the maximum number of bytes used (so far).
   - Only valid while the task is running.
@@ -60,7 +61,7 @@ Functions that can be called from outside:
 
 ### Mutex
 
-Mutexes protect code sections from being accessed concurrently by multiple tasks. One task *locks* the mutex, so that another task has to wait on the mutex for the first task to unlock it. That's not busy waiting: The scheduler kicks in and resumes another task, most probably the one who is locking the mutex, because FreeRTOS supports [priority inheritance](https://www.freertos.org/Real-time-embedded-RTOS-mutexes.html). When the first task unlocks the mutex, other tasks waiting on it can proceed.
+Mutexes protect code sections from being accessed concurrently by multiple tasks. One task *locks* the mutex, so that another task has to wait on the mutex for the first task to *unlock* it. That's not busy waiting: The scheduler kicks in and resumes another task, most probably the one who is locking the mutex, because FreeRTOS supports [priority inheritance](https://www.freertos.org/Real-time-embedded-RTOS-mutexes.html). When the first task unlocks the mutex, other tasks waiting on it can proceed.
 
 Normally you would protect variable accesses and keep the locked times short. But they can as well be used to guard an action that should not be interrupted or a resource that has to finish something before something new is started. Keep an eye on the locking sequence when multiple mutexes are involved: It's easy to shoot oneself in the foot and provoke a [deadlock](https://en.wikipedia.org/wiki/Deadlock). To avoid that either go for broader locking with fewer mutexes, or avoid nested locking by restructuring the code.
 

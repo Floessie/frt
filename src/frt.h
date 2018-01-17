@@ -109,7 +109,7 @@ namespace frt
 			do_stop = true;
 			while (running) {
 				taskEXIT_CRITICAL();
-				yield();
+				vTaskDelay(1);
 				taskENTER_CRITICAL();
 			}
 			taskEXIT_CRITICAL();
@@ -242,7 +242,7 @@ namespace frt
 		volatile bool do_stop;
 		TaskHandle_t handle;
 		BaseType_t higher_priority_task_woken;
-#ifdef configSUPPORT_STATIC_ALLOCATION
+#if configSUPPORT_STATIC_ALLOCATION > 0
 		StackType_t stack[STACK_SIZE / sizeof(StackType_t)];
 		StaticTask_t state;
 #endif
@@ -254,7 +254,7 @@ namespace frt
 	public:
 		Queue() :
 			handle(
-#ifdef configSUPPORT_STATIC_ALLOCATION
+#if configSUPPORT_STATIC_ALLOCATION > 0
 				xQueueCreateStatic(ITEMS, sizeof(T), buffer, &state)
 #else
 				xQueueCreate(ITEMS, sizeof(T))
@@ -319,14 +319,14 @@ namespace frt
 			xQueueReceive(handle, &item, portMAX_DELAY);
 		}
 
-		bool pop(unsigned int msecs, T& item)
+		bool pop(T& item, unsigned int msecs)
 		{
 			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
 
 			return xQueueReceive(handle, &item, ticks) == pdTRUE;
 		}
 
-		bool pop(unsigned int msecs, unsigned int& remainder, T& item)
+		bool pop(T& item, unsigned int msecs, unsigned int& remainder)
 		{
 			msecs += remainder;
 			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
@@ -361,7 +361,7 @@ namespace frt
 		QueueHandle_t handle;
 		BaseType_t higher_priority_task_woken_from_push;
 		BaseType_t higher_priority_task_woken_from_pop;
-#ifdef configSUPPORT_STATIC_ALLOCATION
+#if configSUPPORT_STATIC_ALLOCATION > 0
 		uint8_t buffer[ITEMS * sizeof(T)];
 		StaticQueue_t state;
 #endif
@@ -401,7 +401,7 @@ namespace frt
 
 	private:
 		SemaphoreHandle_t handle;
-#ifdef configSUPPORT_STATIC_ALLOCATION
+#if configSUPPORT_STATIC_ALLOCATION > 0
 		StaticSemaphore_t buffer;
 #endif
 	};
@@ -491,7 +491,7 @@ namespace frt
 	private:
 		SemaphoreHandle_t handle;
 		BaseType_t higher_priority_task_woken;
-#ifdef configSUPPORT_STATIC_ALLOCATION
+#if configSUPPORT_STATIC_ALLOCATION > 0
 		StaticSemaphore_t buffer;
 #endif
 	};
