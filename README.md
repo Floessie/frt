@@ -36,8 +36,9 @@ The repetition of `MyFirstTask` in `frt::Task<MyFirstTask>` is due to [static di
 
 Things you can only do inside your task class:
 * `yield()`: If there's another task with the same or higher priority, switch over to it voluntarily.
+* `nap()`: Sleep the shortest possible time.
 * `msleep(milliseconds)`: Sleep for some milliseconds. This suspends the task so that others can run.
-  - Be aware that there's a [timer granularity](https://github.com/feilipu/Arduino_FreeRTOS_Library#general) of usually 15 milliseconds. So giving for example `14` here won't sleep but simply yield, and giving `20` will only sleep for 15 milliseconds. See the next function to work-around this.
+  - Be aware that there's a [timer granularity](https://github.com/feilipu/Arduino_FreeRTOS_Library#general) of usually 15 milliseconds. So giving for example `14` here won't sleep but simply yield, and giving `20` will only sleep for 15 milliseconds. If you want to definitely sleep for a short time use `nap()`, otherwise see the next function to work-around this.
 * `msleep(milliseconds, remainder)`: Sleep for some milliseconds and store the remaining milliseconds in `remainder`. This will result in some jitter but won't loose milliseconds to the timer granularity.
 * `wait()`: Wait for a [*direct to task notification*](https://www.freertos.org/RTOS_Task_Notification_As_Binary_Semaphore.html). Some other task must call `post()` to wake you up again.
 * `wait(milliseconds)`: Same as above, but with a timeout. Returns `true` if someone `post()`ed you, or `false` on timeout.
@@ -47,9 +48,10 @@ Functions that can be called from outside:
 * `start(priority)`: Start the task with a certain priority (higher number = higher priority).
   - Note that there's a limited number of available priorities. Stock Arduino_FreeRTOS_Library supports 0-3, my [`minimal-static`](https://github.com/Floessie/Arduino_FreeRTOS_Library/tree/minimal-static) branch 0-7.
   - The idle task that executes `loop()` has priority 0.
-* `stop()`: Stops the task. This blocks until the task left its `run()` function, so if you're blocking there indefinitely, `stop()` will never return.
+* `stop()`: Stops the task.
+  - This blocks until the task left its `run()` function, so if you're blocking there indefinitely, `stop()` will never return.
   - If you want to stop from within your task, return `false` from `run()`. Don't call `stop()`!
-  - Stopping a task is harder than you might think. Be sure to block with timeouts (on semaphores and queues) in `run()`.
+  - Stopping a task is harder than you might think. Be sure to block with timeouts (on `wait()`, semaphores, and queues) in `run()`.
 * `isRunning()`: Returns true if the task is started.
 * `getUsedStackSize()`: Each task has a buffer that is used for storing function local variables and return addresses. This function lets you determine the maximum number of bytes used (so far).
   - Only valid while the task is running.
@@ -65,8 +67,14 @@ Mutexes protect code sections from being accessed concurrently by multiple tasks
 
 Normally you would protect variable accesses and keep the locked times short. But they can as well be used to guard an action that should not be interrupted or a resource that has to finish something before something new is started. Keep an eye on the locking sequence when multiple mutexes are involved: It's easy to shoot oneself in the foot and provoke a [deadlock](https://en.wikipedia.org/wiki/Deadlock). To avoid that either go for broader locking with fewer mutexes, or avoid nested locking by restructuring the code.
 
-Mutexes in FreeRTOS can't be used from ISRs. Use (binary) semaphores in that case.
+Mutexes in FreeRTOS can't be used from ISRs.
 
 A `frt::Mutex` has a dead simple interface:
 * `lock()`: Locks the mutex.
 * `unlock()`: Unlocks the mutex.
+
+### Semaphore
+
+Semaphores synchronize actions like, "Proceed only when I told you so!" Thus, semaphores are "locked" in pristine state, whereas mutexes are unlocked. Mutexes must be "given back" via `unlock()`, whereas semaphores are "consumed". Usually there's one task `wait()`ing on a semaphore and another one `post()`ing on it. The normal (*counting*) semaphores remember how often they were posted so that the waiting task can proceed exactly that many times without blocking. Binary semaphores only remember if they were posted but not how often.
+
+If you want to share data via a buffer (and don't want to use `frt::Queue`), you need a mutex to protect the buffer and a semaphore to notify the consumer. The mutex can only be ommitted when an ISR is involved, as interrupts are disabled then.

@@ -159,6 +159,11 @@ namespace frt
 			taskYIELD();
 		}
 
+		void nap()
+		{
+			vTaskDelay(1);
+		}
+
 		void msleep(unsigned int msecs)
 		{
 			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
@@ -245,125 +250,6 @@ namespace frt
 #if configSUPPORT_STATIC_ALLOCATION > 0
 		StackType_t stack[STACK_SIZE / sizeof(StackType_t)];
 		StaticTask_t state;
-#endif
-	};
-
-	template<typename T, int ITEMS>
-	class Queue
-	{
-	public:
-		Queue() :
-			handle(
-#if configSUPPORT_STATIC_ALLOCATION > 0
-				xQueueCreateStatic(ITEMS, sizeof(T), buffer, &state)
-#else
-				xQueueCreate(ITEMS, sizeof(T))
-#endif
-			)
-		{
-		}
-
-		~Queue()
-		{
-			vQueueDelete(handle);
-		}
-
-		explicit Queue(const Queue& other) = delete;
-		Queue& operator =(const Queue& other) = delete;
-
-		void push(const T& item)
-		{
-			xQueueSend(handle, &item, portMAX_DELAY);
-		}
-
-		bool push(const T& item, unsigned int msecs)
-		{
-			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
-
-			return xQueueSend(handle, &item, ticks) == pdTRUE;
-		}
-
-		bool push(const T& item, unsigned int msecs, unsigned int& remainder)
-		{
-			msecs += remainder;
-			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
-			remainder = msecs % portTICK_PERIOD_MS;
-
-			if (xQueueSend(handle, &item, ticks) == pdTRUE) {
-				remainder = 0;
-				return true;
-			}
-
-			return false;
-		}
-
-		void preparePushFromInterrupt()
-		{
-			higher_priority_task_woken_from_push = 0;
-		}
-
-		bool pushFromInterrupt(const T& item)
-		{
-			return xQueueSendFromISR(handle, &item, &higher_priority_task_woken_from_push) == pdTRUE;
-		}
-
-		void finalizePushFromInterrupt() __attribute__((always_inline))
-		{
-			if (higher_priority_task_woken_from_push) {
-				detail::yieldFromIsr();
-			}
-		}
-
-		void pop(T& item)
-		{
-			xQueueReceive(handle, &item, portMAX_DELAY);
-		}
-
-		bool pop(T& item, unsigned int msecs)
-		{
-			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
-
-			return xQueueReceive(handle, &item, ticks) == pdTRUE;
-		}
-
-		bool pop(T& item, unsigned int msecs, unsigned int& remainder)
-		{
-			msecs += remainder;
-			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
-			remainder = msecs % portTICK_PERIOD_MS;
-
-			if (xQueueReceive(handle, &item, ticks) == pdTRUE) {
-				remainder = 0;
-				return true;
-			}
-
-			return false;
-		}
-
-		void preparePopFromInterrupt()
-		{
-			higher_priority_task_woken_from_pop = 0;
-		}
-
-		bool popFromInterrupt(const T& item)
-		{
-			return xQueueReceiveFromISR(handle, &item, &higher_priority_task_woken_from_pop);
-		}
-
-		void finalizePopFromInterrupt() __attribute__((always_inline))
-		{
-			if (higher_priority_task_woken_from_pop) {
-				detail::yieldFromIsr();
-			}
-		}
-
-	private:
-		QueueHandle_t handle;
-		BaseType_t higher_priority_task_woken_from_push;
-		BaseType_t higher_priority_task_woken_from_pop;
-#if configSUPPORT_STATIC_ALLOCATION > 0
-		uint8_t buffer[ITEMS * sizeof(T)];
-		StaticQueue_t state;
 #endif
 	};
 
@@ -493,6 +379,130 @@ namespace frt
 		BaseType_t higher_priority_task_woken;
 #if configSUPPORT_STATIC_ALLOCATION > 0
 		StaticSemaphore_t buffer;
+#endif
+	};
+
+	template<typename T, unsigned int ITEMS>
+	class Queue
+	{
+	public:
+		Queue() :
+			handle(
+#if configSUPPORT_STATIC_ALLOCATION > 0
+				xQueueCreateStatic(ITEMS, sizeof(T), buffer, &state)
+#else
+				xQueueCreate(ITEMS, sizeof(T))
+#endif
+			)
+		{
+		}
+
+		~Queue()
+		{
+			vQueueDelete(handle);
+		}
+
+		explicit Queue(const Queue& other) = delete;
+		Queue& operator =(const Queue& other) = delete;
+
+		unsigned int getFillLevel() const
+		{
+			return ITEMS - uxQueueSpacesAvailable(handle);
+		}
+
+		void push(const T& item)
+		{
+			xQueueSend(handle, &item, portMAX_DELAY);
+		}
+
+		bool push(const T& item, unsigned int msecs)
+		{
+			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
+
+			return xQueueSend(handle, &item, ticks) == pdTRUE;
+		}
+
+		bool push(const T& item, unsigned int msecs, unsigned int& remainder)
+		{
+			msecs += remainder;
+			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
+			remainder = msecs % portTICK_PERIOD_MS;
+
+			if (xQueueSend(handle, &item, ticks) == pdTRUE) {
+				remainder = 0;
+				return true;
+			}
+
+			return false;
+		}
+
+		void preparePushFromInterrupt()
+		{
+			higher_priority_task_woken_from_push = 0;
+		}
+
+		bool pushFromInterrupt(const T& item)
+		{
+			return xQueueSendFromISR(handle, &item, &higher_priority_task_woken_from_push) == pdTRUE;
+		}
+
+		void finalizePushFromInterrupt() __attribute__((always_inline))
+		{
+			if (higher_priority_task_woken_from_push) {
+				detail::yieldFromIsr();
+			}
+		}
+
+		void pop(T& item)
+		{
+			xQueueReceive(handle, &item, portMAX_DELAY);
+		}
+
+		bool pop(T& item, unsigned int msecs)
+		{
+			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
+
+			return xQueueReceive(handle, &item, ticks) == pdTRUE;
+		}
+
+		bool pop(T& item, unsigned int msecs, unsigned int& remainder)
+		{
+			msecs += remainder;
+			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
+			remainder = msecs % portTICK_PERIOD_MS;
+
+			if (xQueueReceive(handle, &item, ticks) == pdTRUE) {
+				remainder = 0;
+				return true;
+			}
+
+			return false;
+		}
+
+		void preparePopFromInterrupt()
+		{
+			higher_priority_task_woken_from_pop = 0;
+		}
+
+		bool popFromInterrupt(const T& item)
+		{
+			return xQueueReceiveFromISR(handle, &item, &higher_priority_task_woken_from_pop);
+		}
+
+		void finalizePopFromInterrupt() __attribute__((always_inline))
+		{
+			if (higher_priority_task_woken_from_pop) {
+				detail::yieldFromIsr();
+			}
+		}
+
+	private:
+		QueueHandle_t handle;
+		BaseType_t higher_priority_task_woken_from_push;
+		BaseType_t higher_priority_task_woken_from_pop;
+#if configSUPPORT_STATIC_ALLOCATION > 0
+		uint8_t buffer[ITEMS * sizeof(T)];
+		StaticQueue_t state;
 #endif
 	};
 
