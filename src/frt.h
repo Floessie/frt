@@ -101,20 +101,12 @@ namespace frt
 
 		bool stop()
 		{
-			if (!handle) {
-				return false;
-			}
+			return stop(false);
+		}
 
-			taskENTER_CRITICAL();
-			do_stop = true;
-			while (running) {
-				taskEXIT_CRITICAL();
-				vTaskDelay(1);
-				taskENTER_CRITICAL();
-			}
-			taskEXIT_CRITICAL();
-
-			return true;
+		bool stopFromIdleTask()
+		{
+			return stop(true);
 		}
 
 		bool isRunning() const
@@ -159,33 +151,20 @@ namespace frt
 			taskYIELD();
 		}
 
-		void nap()
-		{
-			vTaskDelay(1);
-		}
-
 		void msleep(unsigned int msecs)
 		{
 			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
 
-			if (ticks) {
-				vTaskDelay(ticks);
-			} else {
-				yield();
-			}
+			vTaskDelay(max(1, ticks));
 		}
 
 		void msleep(unsigned int msecs, unsigned int& remainder)
 		{
 			msecs += remainder;
 			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
-			remainder = msecs % portTICK_PERIOD_MS;
+			remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
 
-			if (ticks) {
-				vTaskDelay(ticks);
-			} else {
-				yield();
-			}
+			vTaskDelay(max(1, ticks));
 		}
 
 		void wait()
@@ -197,16 +176,16 @@ namespace frt
 		{
 			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
 
-			return ulTaskNotifyTake(pdFALSE, ticks);
+			return ulTaskNotifyTake(pdFALSE, max(1, ticks));
 		}
 
 		bool wait(unsigned int msecs, unsigned int& remainder)
 		{
 			msecs += remainder;
 			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
-			remainder = msecs % portTICK_PERIOD_MS;
+			remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
 
-			if (ulTaskNotifyTake(pdFALSE, ticks)) {
+			if (ulTaskNotifyTake(pdFALSE, max(1, ticks))) {
 				remainder = 0;
 				return true;
 			}
@@ -215,6 +194,28 @@ namespace frt
 		}
 
 	private:
+		bool stop(bool from_idle_task)
+		{
+			if (!handle) {
+				return false;
+			}
+
+			taskENTER_CRITICAL();
+			do_stop = true;
+			while (running) {
+				taskEXIT_CRITICAL();
+				if (!from_idle_task) {
+					vTaskDelay(1);
+				} else {
+					taskYIELD();
+				}
+				taskENTER_CRITICAL();
+			}
+			taskEXIT_CRITICAL();
+
+			return true;
+		}
+
 		static void entryPoint(void* data)
 		{
 			Task* const self = static_cast<Task*>(data);
@@ -335,16 +336,16 @@ namespace frt
 		{
 			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
 
-			return xSemaphoreTake(handle, ticks) == pdTRUE;
+			return xSemaphoreTake(handle, max(1, ticks)) == pdTRUE;
 		}
 
 		bool wait(unsigned int msecs, unsigned int& remainder)
 		{
 			msecs += remainder;
 			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
-			remainder = msecs % portTICK_PERIOD_MS;
+			remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
 
-			if (xSemaphoreTake(handle, ticks) == pdTRUE) {
+			if (xSemaphoreTake(handle, max(1, ticks)) == pdTRUE) {
 				remainder = 0;
 				return true;
 			}
@@ -419,16 +420,16 @@ namespace frt
 		{
 			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
 
-			return xQueueSend(handle, &item, ticks) == pdTRUE;
+			return xQueueSend(handle, &item, max(1, ticks)) == pdTRUE;
 		}
 
 		bool push(const T& item, unsigned int msecs, unsigned int& remainder)
 		{
 			msecs += remainder;
 			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
-			remainder = msecs % portTICK_PERIOD_MS;
+			remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
 
-			if (xQueueSend(handle, &item, ticks) == pdTRUE) {
+			if (xQueueSend(handle, &item, max(1, ticks)) == pdTRUE) {
 				remainder = 0;
 				return true;
 			}
@@ -462,16 +463,16 @@ namespace frt
 		{
 			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
 
-			return xQueueReceive(handle, &item, ticks) == pdTRUE;
+			return xQueueReceive(handle, &item, max(1, ticks)) == pdTRUE;
 		}
 
 		bool pop(T& item, unsigned int msecs, unsigned int& remainder)
 		{
 			msecs += remainder;
 			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
-			remainder = msecs % portTICK_PERIOD_MS;
+			remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
 
-			if (xQueueReceive(handle, &item, ticks) == pdTRUE) {
+			if (xQueueReceive(handle, &item, max(1, ticks)) == pdTRUE) {
 				remainder = 0;
 				return true;
 			}
@@ -505,5 +506,19 @@ namespace frt
 		StaticQueue_t state;
 #endif
 	};
+
+	inline void beginCriticalSection() __attribute__((always_inline));
+
+	void beginCriticalSection()
+	{
+		taskENTER_CRITICAL();
+	}
+
+	inline void endCriticalSection() __attribute__((always_inline));
+
+	void endCriticalSection()
+	{
+		taskEXIT_CRITICAL();
+	}
 
 }

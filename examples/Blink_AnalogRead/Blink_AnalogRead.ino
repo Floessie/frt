@@ -83,7 +83,7 @@ void loop()
 		Serial.println(F(" bytes of stack this time."));
 
 		Serial.println(F("Stopping"));
-		analog_read_task.stop();
+		analog_read_task.stopFromIdleTask();
 		Serial.println(F("Stopped"));
 		stopped = true;
 	}

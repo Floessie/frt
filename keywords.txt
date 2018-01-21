@@ -1,12 +1,13 @@
 frt KEYWORD3
 
 Task KEYWORD1
-Queue KEYWORD1
 Mutex KEYWORD1
 Semaphore KEYWORD1
+Queue KEYWORD1
 
 start KEYWORD2
 stop KEYWORD2
+stopFromIdleTask KEYWORD2
 isRunning KEYWORD2
 getUsedStackSize KEYWORD2
 post KEYWORD2
@@ -26,3 +27,5 @@ popFromInterrupt KEYWORD2
 finalizePopFromInterrupt KEYWORD2
 lock KEYWORD2
 unlock KEYWORD2
+beginCriticalSection KEYWORD2
+endCriticalSection KEYWORD2

@@ -36,9 +36,8 @@ The repetition of `MyFirstTask` in `frt::Task<MyFirstTask>` is due to [static di
 
 Things you can only do inside your task class:
 * `yield()`: If there's another task with the same or higher priority, switch over to it voluntarily.
-* `nap()`: Sleep the shortest possible time.
 * `msleep(milliseconds)`: Sleep for some milliseconds. This suspends the task so that others can run.
-  - Be aware that there's a [timer granularity](https://github.com/feilipu/Arduino_FreeRTOS_Library#general) of usually 15 milliseconds. So giving for example `14` here won't sleep but simply yield, and giving `20` will only sleep for 15 milliseconds. If you want to definitely sleep for a short time use `nap()`, otherwise see the next function to work-around this.
+  - Be aware that there's a [timer granularity](https://github.com/feilipu/Arduino_FreeRTOS_Library#general) called *tick* of usually 15 milliseconds. This function will sleep at least one tick and round down, so that 10 milliseconds will become 15, and 40 milliseconds become 30. For a workaround, see the next function.
 * `msleep(milliseconds, remainder)`: Sleep for some milliseconds and store the remaining milliseconds in `remainder`. This will result in some jitter but won't loose milliseconds to the timer granularity.
 * `wait()`: Wait for a [*direct to task notification*](https://www.freertos.org/RTOS_Task_Notification_As_Binary_Semaphore.html). Some other task must call `post()` to wake you up again.
 * `wait(milliseconds)`: Same as above, but with a timeout. Returns `true` if someone `post()`ed you, or `false` on timeout.
@@ -51,7 +50,9 @@ Functions that can be called from outside:
 * `stop()`: Stops the task.
   - This blocks until the task left its `run()` function, so if you're blocking there indefinitely, `stop()` will never return.
   - If you want to stop from within your task, return `false` from `run()`. Don't call `stop()`!
+  - If you want to stop from the idle task, use `stopFromIdleTask()`.
   - Stopping a task is harder than you might think. Be sure to block with timeouts (on `wait()`, semaphores, and queues) in `run()`.
+* `stopFromIdleTask()`: Stops the task from the idle task (your `loop()` implementation).
 * `isRunning()`: Returns true if the task is started.
 * `getUsedStackSize()`: Each task has a buffer that is used for storing function local variables and return addresses. This function lets you determine the maximum number of bytes used (so far).
   - Only valid while the task is running.
@@ -77,4 +78,13 @@ A `frt::Mutex` has a dead simple interface:
 
 Semaphores synchronize actions like, "Proceed only when I told you so!" Thus, semaphores are "locked" in pristine state, whereas mutexes are unlocked. Mutexes must be "given back" via `unlock()`, whereas semaphores are "consumed". Usually there's one task `wait()`ing on a semaphore and another one `post()`ing on it. The normal (*counting*) semaphores remember how often they were posted so that the waiting task can proceed exactly that many times without blocking. Binary semaphores only remember if they were posted but not how often.
 
-If you want to share data via a buffer (and don't want to use `frt::Queue`), you need a mutex to protect the buffer and a semaphore to notify the consumer. The mutex can only be ommitted when an ISR is involved, as interrupts are disabled then.
+If you want to share data via a buffer (and don't want to use `frt::Queue`), you need a mutex to protect the buffer and a semaphore to notify the consumer. When sharing between an ISR and a task, you can't use a mutex, but a *critical section*.
+
+These are the functions of a semaphore:
+* `wait()`: Wait indefinitely for someone posting the semaphore.
+* `wait(milliseconds)`: Wait with timeout at least one tick.
+* `wait(milliseconds, remainder)`: Same as above but with the `remainder` mechanism on timeout.
+* `post()`: Wake the task waiting on the semaphore.
+* `preparePostFromInterrupt()`: When posting from an interrupt, this function must be called when entering the ISR.
+* `postFromInterrupt()`: Like `post()` but from inside an ISR.
+* `finalizePostFromInterrupt()`: This function must be called last in the ISR whether you called `postFromInterrupt()` or not.
