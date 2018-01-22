@@ -76,7 +76,7 @@ A `frt::Mutex` has a dead simple interface:
 
 ### Semaphore
 
-Semaphores synchronize actions like, "Proceed only when I told you so!" Thus, semaphores are "locked" in pristine state, whereas mutexes are unlocked. Mutexes must be "given back" via `unlock()`, whereas semaphores are "consumed". Usually there's one task `wait()`ing on a semaphore and another one `post()`ing on it. The normal (*counting*) semaphores remember how often they were posted so that the waiting task can proceed exactly that many times without blocking. Binary semaphores only remember if they were posted but not how often.
+Semaphores synchronize actions like, "Proceed only when I told you so!" Thus, semaphores are "locked" in pristine state, whereas mutexes are unlocked. Mutexes must be "given back" via `unlock()`, whereas semaphores are "consumed". Usually there's one task `wait()`ing on a semaphore and another one `post()`ing on it. The normal (*counting*) semaphores remember how often they were posted so that the waiting task can proceed exactly that many times without blocking. Binary semaphores only remember if they were posted but not how often. You can create a binary semaphore by passing `true` to the constructor.
 
 If you want to share data via a buffer (and don't want to use `frt::Queue`), you need a mutex to protect the buffer and a semaphore to notify the consumer. When sharing between an ISR and a task, you can't use a mutex, but a *critical section*.
 
@@ -88,3 +88,22 @@ These are the functions of a semaphore:
 * `preparePostFromInterrupt()`: When posting from an interrupt, this function must be called when entering the ISR.
 * `postFromInterrupt()`: Like `post()` but from inside an ISR.
 * `finalizePostFromInterrupt()`: This function must be called last in the ISR whether you called `postFromInterrupt()` or not.
+
+### Queue
+
+Queues let you pass data from one task to another or to and from ISRs. They can hold up to a fixed number of items, and those items are fixed, too. But don't worry: This scheme is flexible enough for almost everything.
+
+Here's the interface of `frt::Queue`:
+* `getFillLevel()`: Returns the number of items, the queue is currently holding.
+* `push(item)`: Adds one item to the back of the queue. This will wake the task waiting for data. If there's no space left, this variant of `push()` will wait forever until another task pops an item from the queue.
+* `push(item, milliseconds)`: Same as above, but with a timeout (at least one tick).
+* `push(item, milliseconds, remainder)`: Same as above, but with the remainder mechanism.
+* `preparePushFromInterrupt()`: When pushing from an interrupt, this function must be called when entering the ISR.
+* `pushFromInterrupt(item)`: Like `push()` but from inside an ISR. Doesn't wait but returns `false` if no space left.
+* `finalizePushFromInterrupt()`: This function must be called last in the ISR no matter if you called `postFromInterrupt()` or not.
+* `pop(item)`: Pop item from the front of the queue. This will wake a task that stalled on the filled queue. Will wait forever until another task pushes an item.
+* `pop(item, milliseconds)`: Same as above, but with a timeout (at least one tick).
+* `pop(item, milliseconds, remainder)`: Same as above, but with the remainder mechanism.
+* `preparePopFromInterrupt()`: When popping from an interrupt, this function must be called when entering the ISR.
+* `popFromInterrupt(item)`: Like `pop()` but from inside an ISR. Doesn't wait but returns `false` if there is nothing to pop.
+* `finalizePushFromInterrupt()`: This function must be called last in the ISR no matter if you called `popFromInterrupt()` or not.
