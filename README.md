@@ -6,9 +6,15 @@ This will compile just fine with the stock [Arduino_FreeRTOS_Library](https://gi
 
 **This is work in progress, so take it with a grain of salt...**
 
+## Implementation
+
+Just take a look at [`frt.h`](https://github.com/Floessie/frt/blob/master/src/frt.h). It contains the whole wrapper in ca. 500 lines of C++ code.
+
 ## Examples
 
-There's a single example called [`Blink_AnalogRead.ino`](https://github.com/Floessie/frt/blob/master/examples/Blink_AnalogRead/Blink_AnalogRead.ino) for now. [`frt.h`](https://github.com/Floessie/frt/blob/master/src/frt.h) itself isn't that big and magical as well, so take it as a reference until I've spent some more time on documentation.
+* [`Blink_AnalogRead.ino`](https://github.com/Floessie/frt/blob/master/examples/Blink_AnalogRead/Blink_AnalogRead.ino): Like the classic [Arduino_FreeRTOS_Library example](https://github.com/feilipu/Arduino_FreeRTOS_Library/blob/master/examples/Blink_AnalogRead/Blink_AnalogRead.ino) this one blinks the builtin LED in one task and prints the value of `A0` in another task. The `loop()` is a bit more sophisticated, as it stops one task after five seconds and prints some statistics.
+* [`Queue.ino`](https://github.com/Floessie/frt/blob/master/examples/Queue/Queue.ino): Shows two tasks communicating via a queue at full speed. There's a monitoring task and also mutex involved. This example invites you to play with priorities and optimize the data flow for lower latencies.
+* [`QueueISR.ino`](https://github.com/Floessie/frt/blob/master/examples/QueueISR/QueueISR.ino): Asynchronous ADC via ISR and data transfer to task with a queue. And there's also a monitoring task for fun.
 
 ## API
 
@@ -42,6 +48,8 @@ Things you can only do inside your task class:
 * `wait()`: Wait for a [*direct to task notification*](https://www.freertos.org/RTOS_Task_Notification_As_Binary_Semaphore.html). Some other task must call `post()` to wake you up again.
 * `wait(milliseconds)`: Same as above, but with a timeout. Returns `true` if someone `post()`ed you, or `false` on timeout.
 * `wait(milliseconds, remainder)`: Same as above but with the `remainder` mechanism on timeout.
+* `beginCriticalSection()`: Start a critical section. Disables interrupts, so you can access and modify (volatile) variables that are also touched in ISRs.
+* `endCriticalSection()`: Ends a critical section. Reenables interrupts.
 
 Functions that can be called from outside:
 * `start(priority)`: Start the task with a certain priority (higher number = higher priority).
@@ -91,7 +99,17 @@ These are the functions of a semaphore:
 
 ### Queue
 
-Queues let you pass data from one task to another or to and from ISRs. They can hold up to a fixed number of items, and those items are fixed, too. But don't worry: This scheme is flexible enough for almost everything.
+Queues let you pass data from one task to another or to and from ISRs. They can hold up to a fixed number of items, and those items are fixed, too. But don't worry: This scheme is flexible enough for almost everything. See the following example of a queue holding up to five compound items:
+
+```c++
+struct Item {
+    char key[6];
+    int value;
+    unsigned long timestamp;
+};
+
+frt::Queue<Item, 5> my_queue;
+```
 
 Here's the interface of `frt::Queue`:
 * `getFillLevel()`: Returns the number of items, the queue is currently holding.

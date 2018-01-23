@@ -193,6 +193,16 @@ namespace frt
 			return false;
 		}
 
+		void beginCriticalSection() __attribute__((always_inline))
+		{
+			taskENTER_CRITICAL();
+		}
+
+		void endCriticalSection() __attribute__((always_inline))
+		{
+			taskEXIT_CRITICAL();
+		}
+
 	private:
 		bool stop(bool from_idle_task)
 		{
@@ -506,19 +516,5 @@ namespace frt
 		StaticQueue_t state;
 #endif
 	};
-
-	inline void beginCriticalSection() __attribute__((always_inline));
-
-	void beginCriticalSection()
-	{
-		taskENTER_CRITICAL();
-	}
-
-	inline void endCriticalSection() __attribute__((always_inline));
-
-	void endCriticalSection()
-	{
-		taskEXIT_CRITICAL();
-	}
 
 }

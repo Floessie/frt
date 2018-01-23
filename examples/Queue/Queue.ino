@@ -25,10 +25,10 @@ namespace
 			// We push the analog value and the current timestamp
 			queue.push({analogRead(0), millis()});
 
-			// Note that there is no nap() or msleep() here, so this
-			// task runs "full throttle" and will only yield if either
-			// preempted by a higher priority task on the next scheduler
-			// tick or the queue being full.
+			// Note that there is no msleep() here, so this task runs
+			// "full throttle" and will only yield if either preempted
+			// by a higher priority task on the next scheduler tick or
+			// the queue being full.
 
 			return true;
 		}
@@ -62,7 +62,7 @@ namespace
 			Serial.println(data.timestamp);
 			serial_mutex.unlock();
 
-			// Again, no nap() or sleep() here.
+			// Again, no msleep() here
 
 			return true;
 		}
