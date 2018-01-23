@@ -15,6 +15,7 @@ Just take a look at [`frt.h`](https://github.com/Floessie/frt/blob/master/src/fr
 * [`Blink_AnalogRead.ino`](https://github.com/Floessie/frt/blob/master/examples/Blink_AnalogRead/Blink_AnalogRead.ino): Like the classic [Arduino_FreeRTOS_Library example](https://github.com/feilipu/Arduino_FreeRTOS_Library/blob/master/examples/Blink_AnalogRead/Blink_AnalogRead.ino) this one blinks the builtin LED in one task and prints the value of `A0` in another task. The `loop()` is a bit more sophisticated, as it stops one task after five seconds and prints some statistics.
 * [`Queue.ino`](https://github.com/Floessie/frt/blob/master/examples/Queue/Queue.ino): Shows two tasks communicating via a queue at full speed. There's a monitoring task and also mutex involved. This example invites you to play with priorities and optimize the data flow for lower latencies.
 * [`QueueISR.ino`](https://github.com/Floessie/frt/blob/master/examples/QueueISR/QueueISR.ino): Asynchronous ADC via ISR and data transfer to task with a queue. And there's also a monitoring task for fun.
+* [`CriticalSection.ino`](https://github.com/Floessie/frt/blob/master/examples/CriticalSection/CriticalSection.ino): Asynchronous ADC via ISR and data transfer to task using *direct to task notification* and a critical section.
 
 ## API
 
