@@ -47,6 +47,7 @@ Things you can only do inside your task class:
   - Be aware that there's a [timer granularity](https://github.com/feilipu/Arduino_FreeRTOS_Library#general) called *tick* of usually 15 milliseconds. This function will sleep at least one tick and round down, so that 10 milliseconds will become 15, and 40 milliseconds become 30. For a workaround, see the next function.
 * `msleep(milliseconds, remainder)`: Sleep for some milliseconds and store the remaining milliseconds in `remainder`. This will result in some jitter but won't loose milliseconds to the timer granularity.
 * `wait()`: Wait for a [*direct to task notification*](https://www.freertos.org/RTOS_Task_Notification_As_Binary_Semaphore.html). Some other task must call `post()` to wake you up again.
+  - This behaves just like a binary semaphore: A `wait()` will reset all `post()`s that were done before, so the next `wait()` will actually wait until posted again.
 * `wait(milliseconds)`: Same as above, but with a timeout. Returns `true` if someone `post()`ed you, or `false` on timeout.
 * `wait(milliseconds, remainder)`: Same as above but with the `remainder` mechanism on timeout.
 * `beginCriticalSection()`: Start a critical section. Disables interrupts, so you can access and modify (volatile) variables that are also touched in ISRs.
@@ -85,9 +86,18 @@ A `frt::Mutex` has a dead simple interface:
 
 ### Semaphore
 
-Semaphores synchronize actions like, "Proceed only when I told you so!" Thus, semaphores are "locked" in pristine state, whereas mutexes are unlocked. Mutexes must be "given back" via `unlock()`, whereas semaphores are "consumed". Usually there's one task `wait()`ing on a semaphore and another one `post()`ing on it. The normal (*counting*) semaphores remember how often they were posted so that the waiting task can proceed exactly that many times without blocking. Binary semaphores only remember if they were posted but not how often. You can create a binary semaphore by passing `true` to the constructor.
+Semaphores synchronize actions like, "Proceed only when I told you so!" Thus, semaphores are "locked" in pristine state, whereas mutexes are unlocked. Mutexes must be "given back" via `unlock()`, whereas semaphores are "consumed". Usually there's one task `wait()`ing on a semaphore and another one `post()`ing on it.
 
-If you want to share data via a buffer (and don't want to use `frt::Queue`), you need a mutex to protect the buffer and a semaphore to notify the consumer. When sharing between an ISR and a task, you can't use a mutex, but a *critical section*.
+There are two kinds of semaphores:
+1. Binary semaphores, which only remember if they were posted but not how often. This is often sufficient and the default for a `frt::Semaphore`.
+2. Counting semaphores, that remember how often they were posted so that the waiting task can proceed exactly that many times without blocking. Such a semaphore is created by passing `true` to the constructor.
+
+```c++
+frt::Semaphore my_binary_semaphore;
+frt::Semaphore my_counting_semaphore(true);
+```
+
+If you want to share data via a buffer (and don't want to use `frt::Queue`), you need a mutex to protect the buffer and a semaphore to notify the consumer. When sharing between an ISR and a task, you can't use a mutex, but must employ a *critical section*.
 
 These are the functions of a semaphore:
 * `wait()`: Wait indefinitely for someone posting the semaphore.

@@ -169,14 +169,14 @@ namespace frt
 
 		void wait()
 		{
-			ulTaskNotifyTake(pdFALSE, portMAX_DELAY);
+			ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 		}
 
 		bool wait(unsigned int msecs)
 		{
 			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
 
-			return ulTaskNotifyTake(pdFALSE, max(1, ticks));
+			return ulTaskNotifyTake(pdTRUE, max(1, ticks));
 		}
 
 		bool wait(unsigned int msecs, unsigned int& remainder)
@@ -185,7 +185,7 @@ namespace frt
 			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
 			remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
 
-			if (ulTaskNotifyTake(pdFALSE, max(1, ticks))) {
+			if (ulTaskNotifyTake(pdTRUE, max(1, ticks))) {
 				remainder = 0;
 				return true;
 			}
@@ -264,7 +264,7 @@ namespace frt
 #endif
 	};
 
-	class Mutex
+	class Mutex final
 	{
 	public:
 		Mutex() :
@@ -303,27 +303,19 @@ namespace frt
 #endif
 	};
 
-	class Semaphore
+	class Semaphore final
 	{
 	public:
-		Semaphore(bool binary = false) :
+		Semaphore(bool counting = false) :
 			handle(
 #if configSUPPORT_STATIC_ALLOCATION > 0
-				[this, binary]()
-				{
-					return
-						binary
-							? xSemaphoreCreateBinaryStatic(&buffer)
-							: xSemaphoreCreateCountingStatic(static_cast<UBaseType_t>(-1), 0, &buffer);
-				}()
+				counting
+					? xSemaphoreCreateCountingStatic(static_cast<UBaseType_t>(-1), 0, &buffer)
+					: xSemaphoreCreateBinaryStatic(&buffer)
 #else
-				[binary]()
-				{
-					return
-						binary
-							? xSemaphoreCreateBinary()
-							: xSemaphoreCreateCounting(static_cast<UBaseType_t>(-1), 0);
-				}()
+				counting
+					? xSemaphoreCreateCounting(static_cast<UBaseType_t>(-1), 0)
+					: xSemaphoreCreateBinary()
 #endif
 			)
 		{
@@ -394,7 +386,7 @@ namespace frt
 	};
 
 	template<typename T, unsigned int ITEMS>
-	class Queue
+	class Queue final
 	{
 	public:
 		Queue() :

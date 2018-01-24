@@ -108,11 +108,10 @@ void setup()
 	// This is ATMega328 specific
 	ADMUX = bit(REFS0); // AVcc as reference
 
-	// Start monitoring task with low priority
+	// Start monitoring and print task with same priority to test
+	// round-robin scheduling.
 	monitoring_task.start(1);
-
-	// Start print task with high priority
-	print_task.start(2);
+	print_task.start(1);
 }
 
 void loop()
