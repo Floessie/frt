@@ -54,7 +54,7 @@ namespace
 
 }
 
-void setup()
+void setup()  //                                                     @@@ use setup() to start your tasks
 {
 	pinMode(LED_BUILTIN, OUTPUT);
 
@@ -62,16 +62,16 @@ void setup()
 
 	while (!Serial);
 
-	// Start the blink task with priority 1
+	// Start the blink task with priority 1                      @@@ these two tasks start to
 	blink_task.start(1);
-	// Start the analog read task with higher priority 2
+	// Start the analog read task with higher priority 2         @@@ run concurrently, then proceed to the loop()
 	analog_read_task.start(2);
 }
 
 // This is called by the idle task (at the lowest priority 0)
-void loop()
+void loop()                           //                             @@@ loop () controls time to run and does stuff
 {
-	static bool stopped = false;
+	static bool stopped = false;  //                             @@@ when finished.
 
 	// Stop analog read task after 5s
 	if (!stopped && millis() > 5000) {
