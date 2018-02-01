@@ -101,7 +101,8 @@ namespace
 
 void setup()
 {
-	Serial.begin(9600);
+	// High speed output so we don't stall on Serial with mutex locked
+	Serial.begin(115200);
 
 	while (!Serial);
 
