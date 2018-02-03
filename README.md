@@ -1,19 +1,17 @@
 # frt - Flössie's ready (FreeRTOS) threading
 
-frt is an object-oriented wrapper around FreeRTOS tasks, queues, mutexes, and semaphores. It provides the basic tools for a clean multithreading approach based on the [Arduino_FreeRTOS_Library](https://github.com/feilipu/Arduino_FreeRTOS_Library) with focus on static allocation, so you know your SRAM demands at compile time.
+frt is an object-oriented wrapper around FreeRTOS tasks, mutexes, semaphores, and queues. It provides the basic tools for a clean multithreading approach based on the [Arduino_FreeRTOS_Library](https://github.com/feilipu/Arduino_FreeRTOS_Library) with focus on static allocation, so you know your SRAM demands at compile time.
 
 This will compile just fine with the stock [Arduino_FreeRTOS_Library](https://github.com/feilipu/Arduino_FreeRTOS_Library), but if you want the advantages of static allocation you are welcome to try my [`minimal-static`](https://github.com/Floessie/Arduino_FreeRTOS_Library/tree/minimal-static) branch with frt.
 
-**This is work in progress, so take it with a grain of salt...**
-
 ## Implementation
 
-Just take a look at [`frt.h`](https://github.com/Floessie/frt/blob/master/src/frt.h). It contains the whole wrapper in ca. 500 lines of C++ code.
+Just take a look at [`frt.h`](https://github.com/Floessie/frt/blob/master/src/frt.h). It contains the whole wrapper in about 500 lines of C++ code.
 
 ## Examples
 
 * [`Blink_AnalogRead.ino`](https://github.com/Floessie/frt/blob/master/examples/Blink_AnalogRead/Blink_AnalogRead.ino): Like the classic [Arduino_FreeRTOS_Library example](https://github.com/feilipu/Arduino_FreeRTOS_Library/blob/master/examples/Blink_AnalogRead/Blink_AnalogRead.ino) this one blinks the builtin LED in one task and prints the value of `A0` in another task. The `loop()` is a bit more sophisticated, as it stops one task after five seconds and prints some statistics.
-* [`Queue.ino`](https://github.com/Floessie/frt/blob/master/examples/Queue/Queue.ino): Shows two tasks communicating via a queue at full speed. There's a monitoring task and also mutex involved. This example invites you to play with priorities and optimize the data flow for lower latencies.
+* [`Queue.ino`](https://github.com/Floessie/frt/blob/master/examples/Queue/Queue.ino): Shows two tasks communicating via a queue at full speed. There's a monitoring task and also a mutex involved. This example invites you to play with priorities and optimize the data flow for lower latencies.
 * [`QueueISR.ino`](https://github.com/Floessie/frt/blob/master/examples/QueueISR/QueueISR.ino): Asynchronous ADC via ISR and data transfer to task with a queue. And there's also a monitoring task for fun.
 * [`CriticalSection.ino`](https://github.com/Floessie/frt/blob/master/examples/CriticalSection/CriticalSection.ino): Asynchronous ADC via ISR and data transfer to task using *direct to task notification* and a critical section.
 
@@ -39,12 +37,12 @@ public:
 };
 ```
 
-The repetition of `MyFirstTask` in `frt::Task<MyFirstTask>` is due to [static dispatch per CRTP](https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern#Static_polymorphism), a commonly used pattern that saves code and precious RAM. Think of `run()` as your previously used `loop()` function with an additional return value, with which you can signal if you want to be called again or not. If you would return `false` in the example above, `run()` would only be called once.
+The repetition of `MyFirstTask` in `frt::Task<MyFirstTask>` is due to [static dispatch per CRTP](https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern#Static_polymorphism), a commonly used pattern that saves code and precious RAM. Think of `run()` as your previously used `loop()` function with an additional return value, with which you can signal if you want to be called again or not. If you returned `false` in the example above, `run()` would only be called once.
 
 Things you can only do inside your task class:
 * `yield()`: If there's another task with the same or higher priority, switch over to it voluntarily.
 * `msleep(milliseconds)`: Sleep for some milliseconds. This suspends the task so that others can run.
-  - Be aware that there's a [timer granularity](https://github.com/feilipu/Arduino_FreeRTOS_Library#general) called *tick* of usually 15 milliseconds. This function will sleep at least one tick and round down, so that 10 milliseconds will become 15, and 40 milliseconds become 30. For a workaround, see the next function.
+  - Be aware that there's a [timer granularity](https://github.com/feilipu/Arduino_FreeRTOS_Library#general) called *tick* of usually 15 milliseconds. This function will sleep at least one tick, so that 10 milliseconds will become 15, and round down, so that 40 milliseconds become 30. For a workaround, see the next function.
 * `msleep(milliseconds, remainder)`: Sleep for some milliseconds and store the remaining milliseconds in `remainder`. This will result in some jitter but won't loose milliseconds to the timer granularity.
 * `wait()`: Wait for a [*direct to task notification*](https://www.freertos.org/RTOS_Task_Notification_As_Binary_Semaphore.html). Some other task must call `post()` to wake you up again.
   - This behaves just like a binary semaphore: A `wait()` will reset all `post()`s that were done before, so the next `wait()` will actually wait until posted again.
@@ -61,7 +59,7 @@ Functions that can be called from outside:
   - This blocks until the task left its `run()` function, so if you're blocking there indefinitely, `stop()` will never return.
   - If you want to stop from within your task, return `false` from `run()`. Don't call `stop()`!
   - If you want to stop from the idle task, use `stopFromIdleTask()`.
-  - Stopping a task is harder than you might think. Be sure to block with timeouts (on `wait()`, semaphores, and queues) in `run()`.
+  - Stopping a task is harder than you might think. Be sure to block with timeouts (on `wait()`, semaphores, or queues) in `run()`.
 * `stopFromIdleTask()`: Stops the task from the idle task (your `loop()` implementation).
 * `isRunning()`: Returns true if the task is started.
 * `getUsedStackSize()`: Each task has a buffer that is used for storing function local variables and return addresses. This function lets you determine the maximum number of bytes used (so far).
@@ -70,15 +68,16 @@ Functions that can be called from outside:
 * `post()`: Wake task via *direct to task notification*.
 * `preparePostFromInterrupt()`: When posting from an interrupt, this function must be called when entering the ISR.
 * `postFromInterrupt()`: Like `post()` but from inside an ISR.
-* `finalizePostFromInterrupt()`: This function must be called last in the ISR whether you called `postFromInterrupt()` or not.
+* `finalizePostFromInterrupt()`: This function must be called last in the ISR where you have a `postFromInterrupt()`.
+  - It doesn't matter if `postFromInterrupt()` was really called during the ISR. This is remembered internally and handled automatically.
 
 ### Mutex
 
-Mutexes protect code sections from being accessed concurrently by multiple tasks. One task *locks* the mutex, so that another task has to wait on the mutex for the first task to *unlock* it. That's not busy waiting: The scheduler kicks in and resumes another task, most probably the one who is locking the mutex, because FreeRTOS supports [priority inheritance](https://www.freertos.org/Real-time-embedded-RTOS-mutexes.html). When the first task unlocks the mutex, other tasks waiting on it can proceed.
+Mutexes protect code sections from being accessed concurrently by multiple tasks. One task *locks* the mutex, so that another task has to wait on the mutex for the first task to *unlock* it. That's not busy waiting in a loop like `delay()` does: The scheduler kicks in and resumes another task, most probably the one who is locking the mutex, because FreeRTOS supports [priority inheritance](https://www.freertos.org/Real-time-embedded-RTOS-mutexes.html). When the first task unlocks the mutex, one of the other tasks waiting on it can proceed.
 
-Normally you would protect variable accesses and keep the locked times short. But they can as well be used to guard an action that should not be interrupted or a resource that has to finish something before something new is started. Keep an eye on the locking sequence when multiple mutexes are involved: It's easy to shoot oneself in the foot and provoke a [deadlock](https://en.wikipedia.org/wiki/Deadlock). To avoid that either go for broader locking with fewer mutexes, or avoid nested locking by restructuring the code.
+Normally you would only protect variable accesses and keep the locked times short. But they can as well be used to guard an action that should not be interrupted or a resource that has to finish something before something new is started. Keep an eye on the locking sequence when multiple mutexes are involved: It's easy to shoot oneself in the foot and provoke a [deadlock](https://en.wikipedia.org/wiki/Deadlock). To avoid that either go for broader locking with fewer mutexes, or avoid nested locking by restructuring the code.
 
-Mutexes in FreeRTOS can't be used from ISRs.
+Mutexes in FreeRTOS can't be used from ISRs. See `frt::Task::beginCriticalSection()` for that.
 
 A `frt::Mutex` has a dead simple interface:
 * `lock()`: Locks the mutex.
