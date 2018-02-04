@@ -17,7 +17,7 @@ Just take a look at [`frt.h`](https://github.com/Floessie/frt/blob/master/src/fr
 
 ## API
 
-The whole API resides in the `frt` namespace.
+The whole API resides in the `frt` namespace. That doesn't mean your classes have to be in namespace `frt`, but that all classes of `frt` have to be prefixed with `frt::` when  using them. See the code snippets below and the examples above.
 
 ### Task
 
@@ -89,7 +89,7 @@ Semaphores synchronize actions like, "Proceed only when I told you so!" Thus, se
 
 There are two kinds of semaphores:
 1. Binary semaphores, which only remember if they were posted but not how often. This is often sufficient and the default for a `frt::Semaphore`.
-2. Counting semaphores, that remember how often they were posted so that the waiting task can proceed exactly that many times without blocking. Such a semaphore is created by passing `true` to the constructor.
+2. Counting semaphores, that remember how often they were posted so that the waiting task can proceed exactly that many times without blocking. Such a semaphore is created by passing `true` to the constructor:
 
 ```c++
 frt::Semaphore my_binary_semaphore;
@@ -100,7 +100,7 @@ If you want to share data via a buffer (and don't want to use `frt::Queue`), you
 
 These are the functions of a semaphore:
 * `wait()`: Wait indefinitely for someone posting the semaphore.
-* `wait(milliseconds)`: Wait with timeout at least one tick.
+* `wait(milliseconds)`: Wait with timeout (at least one tick).
 * `wait(milliseconds, remainder)`: Same as above but with the `remainder` mechanism on timeout.
 * `post()`: Wake the task waiting on the semaphore.
 * `preparePostFromInterrupt()`: When posting from an interrupt, this function must be called when entering the ISR.
@@ -109,7 +109,7 @@ These are the functions of a semaphore:
 
 ### Queue
 
-Queues let you pass data from one task to another or to and from ISRs. They can hold up to a fixed number of items, and those items are fixed, too. But don't worry: This scheme is flexible enough for almost everything. See the following example of a queue holding up to five compound items:
+Queues let you pass data from one task to another or to and from ISRs. They can hold up to a fixed number of items, and those items have a fixed type, too. But don't worry: This scheme is flexible enough for almost everything. See the following example of a queue holding up to five compound items:
 
 ```c++
 struct Item {
@@ -134,4 +134,13 @@ Here's the interface of `frt::Queue`:
 * `pop(item, milliseconds, remainder)`: Same as above, but with the remainder mechanism.
 * `preparePopFromInterrupt()`: When popping from an interrupt, this function must be called when entering the ISR.
 * `popFromInterrupt(item)`: Like `pop()` but from inside an ISR. Doesn't wait but returns `false` if there is nothing to pop.
-* `finalizePushFromInterrupt()`: This function must be called last in the ISR no matter if you called `popFromInterrupt()` or not.
+* `finalizePopFromInterrupt()`: This function must be called last in the ISR no matter if you called `popFromInterrupt()` or not.
+
+## Remarks about the API
+
+Maybe you miss some functions from the API. If so, there might be several reasons why they are missing:
+* Values that are specified by you or your Arduino_FreeRTOS_Library configuration aren't exposed because you already know them.
+* A wrapper for [`vTaskDelayUntil()`](https://www.freertos.org/vtaskdelayuntil.html) isn't available, as this would mean exposing the *tick* while `frt` tries its best to hide it. You can use `millis()` to determine if you missed a deadline or if there's enough time left for a `frt::Task::msleep()` as long as timer 0 wasn't stopped in the meantime.
+* The FreeRTOS function is too special or the problem can be solved by other means.
+* I simply didn't deem the function to be important enough.
+
