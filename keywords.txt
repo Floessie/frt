@@ -17,6 +17,11 @@ finalizePostFromInterrupt KEYWORD2
 yield KEYWORD2
 msleep KEYWORD2
 wait KEYWORD2
+beginCriticalSection KEYWORD2
+endCriticalSection KEYWORD2
+lock KEYWORD2
+unlock KEYWORD2
+getFillLevel KEYWORD2
 push KEYWORD2
 preparePushFromInterrupt KEYWORD2
 pushFromInterrupt KEYWORD2
@@ -25,7 +30,3 @@ pop KEYWORD2
 preparePopFromInterrupt KEYWORD2
 popFromInterrupt KEYWORD2
 finalizePopFromInterrupt KEYWORD2
-lock KEYWORD2
-unlock KEYWORD2
-beginCriticalSection KEYWORD2
-endCriticalSection KEYWORD2

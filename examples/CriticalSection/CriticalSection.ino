@@ -101,18 +101,16 @@ namespace
 
 void setup()
 {
-	// High speed output so we don't stall on Serial with mutex locked
-	Serial.begin(115200);
+	Serial.begin(9600);
 
 	while (!Serial);
 
 	// This is ATMega328 specific
 	ADMUX = bit(REFS0); // AVcc as reference
 
-	// Start monitoring and print task with same priority to test
-	// round-robin scheduling.
-	monitoring_task.start(1);
+	// Start both tasks
 	print_task.start(1);
+	monitoring_task.start(2);
 }
 
 void loop()
