@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Flössie <floessie.mail@gmail.com>
+ * Copyright (c) 2018-2020 Flössie <floessie.mail@gmail.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -155,7 +155,7 @@ namespace frt
 		{
 			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
 
-			vTaskDelay(max(1, ticks));
+			vTaskDelay(max(1U, ticks));
 		}
 
 		void msleep(unsigned int msecs, unsigned int& remainder)
@@ -164,7 +164,7 @@ namespace frt
 			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
 			remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
 
-			vTaskDelay(max(1, ticks));
+			vTaskDelay(max(1U, ticks));
 		}
 
 		void wait()
@@ -176,7 +176,7 @@ namespace frt
 		{
 			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
 
-			return ulTaskNotifyTake(pdTRUE, max(1, ticks));
+			return ulTaskNotifyTake(pdTRUE, max(1U, ticks));
 		}
 
 		bool wait(unsigned int msecs, unsigned int& remainder)
@@ -185,7 +185,7 @@ namespace frt
 			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
 			remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
 
-			if (ulTaskNotifyTake(pdTRUE, max(1, ticks))) {
+			if (ulTaskNotifyTake(pdTRUE, max(1U, ticks))) {
 				remainder = 0;
 				return true;
 			}
@@ -306,16 +306,21 @@ namespace frt
 	class Semaphore final
 	{
 	public:
-		Semaphore(bool counting = false) :
+		enum class Type {
+			BINARY,
+			COUNTING
+		};
+
+		Semaphore(Type type = Type::BINARY) :
 			handle(
 #if configSUPPORT_STATIC_ALLOCATION > 0
-				counting
-					? xSemaphoreCreateCountingStatic(static_cast<UBaseType_t>(-1), 0, &buffer)
-					: xSemaphoreCreateBinaryStatic(&buffer)
+				type == Type::BINARY
+					? xSemaphoreCreateBinaryStatic(&buffer)
+					: xSemaphoreCreateCountingStatic(static_cast<UBaseType_t>(-1), 0, &buffer)
 #else
-				counting
-					? xSemaphoreCreateCounting(static_cast<UBaseType_t>(-1), 0)
-					: xSemaphoreCreateBinary()
+				type == Type::BINARY
+					? xSemaphoreCreateBinary()
+					: xSemaphoreCreateCounting(static_cast<UBaseType_t>(-1), 0)
 #endif
 			)
 		{
@@ -338,7 +343,7 @@ namespace frt
 		{
 			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
 
-			return xSemaphoreTake(handle, max(1, ticks)) == pdTRUE;
+			return xSemaphoreTake(handle, max(1U, ticks)) == pdTRUE;
 		}
 
 		bool wait(unsigned int msecs, unsigned int& remainder)
@@ -347,7 +352,7 @@ namespace frt
 			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
 			remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
 
-			if (xSemaphoreTake(handle, max(1, ticks)) == pdTRUE) {
+			if (xSemaphoreTake(handle, max(1U, ticks)) == pdTRUE) {
 				remainder = 0;
 				return true;
 			}
@@ -422,7 +427,7 @@ namespace frt
 		{
 			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
 
-			return xQueueSend(handle, &item, max(1, ticks)) == pdTRUE;
+			return xQueueSend(handle, &item, max(1U, ticks)) == pdTRUE;
 		}
 
 		bool push(const T& item, unsigned int msecs, unsigned int& remainder)
@@ -431,7 +436,7 @@ namespace frt
 			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
 			remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
 
-			if (xQueueSend(handle, &item, max(1, ticks)) == pdTRUE) {
+			if (xQueueSend(handle, &item, max(1U, ticks)) == pdTRUE) {
 				remainder = 0;
 				return true;
 			}
@@ -465,7 +470,7 @@ namespace frt
 		{
 			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
 
-			return xQueueReceive(handle, &item, max(1, ticks)) == pdTRUE;
+			return xQueueReceive(handle, &item, max(1U, ticks)) == pdTRUE;
 		}
 
 		bool pop(T& item, unsigned int msecs, unsigned int& remainder)
@@ -474,7 +479,7 @@ namespace frt
 			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
 			remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
 
-			if (xQueueReceive(handle, &item, max(1, ticks)) == pdTRUE) {
+			if (xQueueReceive(handle, &item, max(1U, ticks)) == pdTRUE) {
 				remainder = 0;
 				return true;
 			}

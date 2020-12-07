@@ -89,11 +89,11 @@ Semaphores synchronize actions like, "Proceed only when I told you so!" Thus, se
 
 There are two kinds of semaphores:
 1. Binary semaphores, which only remember if they were posted but not how often. This is often sufficient and the default for a `frt::Semaphore`.
-2. Counting semaphores, that remember how often they were posted so that the waiting task can proceed exactly that many times without blocking. Such a semaphore is created by passing `true` to the constructor:
+2. Counting semaphores, that remember how often they were posted so that the waiting task can proceed exactly that many times without blocking. Such a semaphore is created by passing `frt::Semaphore::Type::COUNTING` to the constructor:
 
 ```c++
 frt::Semaphore my_binary_semaphore;
-frt::Semaphore my_counting_semaphore(true);
+frt::Semaphore my_counting_semaphore(frt::Semaphore::Type::COUNTING);
 ```
 
 If you want to share data via a buffer (and don't want to use `frt::Queue`), you need a mutex to protect the buffer and a semaphore to notify the consumer. When sharing between an ISR and a task, you can't use a mutex, but must employ a *critical section*.

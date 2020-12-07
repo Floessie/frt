@@ -5,6 +5,8 @@ Mutex	KEYWORD1
 Semaphore	KEYWORD1
 Queue	KEYWORD1
 
+Type	KEYWORD1
+
 start	KEYWORD2
 stop	KEYWORD2
 stopFromIdleTask	KEYWORD2
@@ -30,3 +32,6 @@ pop	KEYWORD2
 preparePopFromInterrupt	KEYWORD2
 popFromInterrupt	KEYWORD2
 finalizePopFromInterrupt	KEYWORD2
+
+BINARY	LITERAL1
+COUNTING	LITERAL1
