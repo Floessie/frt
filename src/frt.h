@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020 Flössie <floessie.mail@gmail.com>
+ * Copyright (c) 2018-2024 Flössie <floessie.mail@gmail.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -23,8 +23,18 @@
 
 #pragma once
 
-#include <Arduino.h>
-#include <Arduino_FreeRTOS.h>
+#ifdef __has_include
+	#if __has_include(<FreeRTOS.h>)
+		#include <FreeRTOS.h>
+	#elif __has_include(<Arduino_FreeRTOS.h>)
+		#include <Arduino_FreeRTOS.h>
+	#else
+		#error "FreeRTOS header not found."
+	#endif
+#else
+	#include <Arduino_FreeRTOS.h>
+#endif
+
 #include <queue.h>
 #include <semphr.h>
 
@@ -48,9 +58,18 @@ namespace frt
 			#endif
 		}
 
+		template<typename T>
+		constexpr const T& maximum(const T& a, const T& b)
+		{
+			return
+				a < b
+					? b
+					: a;
+		}
+
 	}
 
-	template<typename T, unsigned int STACK_SIZE = configMINIMAL_STACK_SIZE * sizeof(StackType_t)>
+	template<typename DERIVED, unsigned int STACK_SIZE = configMINIMAL_STACK_SIZE * sizeof(StackType_t)>
 	class Task
 	{
 	public:
@@ -85,6 +104,7 @@ namespace frt
 				stack,
 				&state
 			);
+
 			return handle;
 #else
 			return
@@ -120,7 +140,11 @@ namespace frt
 
 		unsigned int getUsedStackSize() const
 		{
+#if INCLUDE_uxTaskGetStackHighWaterMark2 == 1
+			return STACK_SIZE - uxTaskGetStackHighWaterMark2(handle) * sizeof(StackType_t);
+#else
 			return STACK_SIZE - uxTaskGetStackHighWaterMark(handle) * sizeof(StackType_t);
+#endif
 		}
 
 		void post()
@@ -130,7 +154,7 @@ namespace frt
 
 		void preparePostFromInterrupt()
 		{
-			higher_priority_task_woken = 0;
+			higher_priority_task_woken = pdFALSE;
 		}
 
 		void postFromInterrupt()
@@ -155,7 +179,7 @@ namespace frt
 		{
 			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
 
-			vTaskDelay(max(1U, ticks));
+			vTaskDelay(detail::maximum(1U, ticks));
 		}
 
 		void msleep(unsigned int msecs, unsigned int& remainder)
@@ -164,7 +188,7 @@ namespace frt
 			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
 			remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
 
-			vTaskDelay(max(1U, ticks));
+			vTaskDelay(detail::maximum(1U, ticks));
 		}
 
 		void wait()
@@ -176,7 +200,7 @@ namespace frt
 		{
 			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
 
-			return ulTaskNotifyTake(pdTRUE, max(1U, ticks));
+			return ulTaskNotifyTake(pdTRUE, detail::maximum(1U, ticks));
 		}
 
 		bool wait(unsigned int msecs, unsigned int& remainder)
@@ -185,7 +209,7 @@ namespace frt
 			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
 			remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
 
-			if (ulTaskNotifyTake(pdTRUE, max(1U, ticks))) {
+			if (ulTaskNotifyTake(pdTRUE, detail::maximum(1U, ticks))) {
 				remainder = 0;
 				return true;
 			}
@@ -211,16 +235,21 @@ namespace frt
 			}
 
 			taskENTER_CRITICAL();
+
 			do_stop = true;
+
 			while (running) {
 				taskEXIT_CRITICAL();
+
 				if (!from_idle_task) {
 					vTaskDelay(1);
 				} else {
 					taskYIELD();
 				}
+
 				taskENTER_CRITICAL();
 			}
+
 			taskEXIT_CRITICAL();
 
 			return true;
@@ -237,7 +266,7 @@ namespace frt
 			do_stop = self->do_stop;
 			taskEXIT_CRITICAL();
 
-			while (!do_stop && static_cast<T*>(self)->run()) {
+			while (!do_stop && static_cast<DERIVED*>(self)->run()) {
 				taskENTER_CRITICAL();
 				do_stop = self->do_stop;
 				taskEXIT_CRITICAL();
@@ -296,6 +325,16 @@ namespace frt
 			xSemaphoreGive(handle);
 		}
 
+		bool tryLock()
+		{
+			return xSemaphoreTake(handle, 0) == pdTRUE;
+		}
+
+		bool try_lock()
+		{
+			return tryLock();
+		}
+
 	private:
 		SemaphoreHandle_t handle;
 #if configSUPPORT_STATIC_ALLOCATION > 0
@@ -343,7 +382,7 @@ namespace frt
 		{
 			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
 
-			return xSemaphoreTake(handle, max(1U, ticks)) == pdTRUE;
+			return xSemaphoreTake(handle, detail::maximum(1U, ticks)) == pdTRUE;
 		}
 
 		bool wait(unsigned int msecs, unsigned int& remainder)
@@ -352,8 +391,9 @@ namespace frt
 			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
 			remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
 
-			if (xSemaphoreTake(handle, max(1U, ticks)) == pdTRUE) {
+			if (xSemaphoreTake(handle, detail::maximum(1U, ticks)) == pdTRUE) {
 				remainder = 0;
+
 				return true;
 			}
 
@@ -367,7 +407,7 @@ namespace frt
 
 		void preparePostFromInterrupt()
 		{
-			higher_priority_task_woken = 0;
+			higher_priority_task_woken = pdFALSE;
 		}
 
 		void postFromInterrupt()
@@ -427,7 +467,7 @@ namespace frt
 		{
 			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
 
-			return xQueueSend(handle, &item, max(1U, ticks)) == pdTRUE;
+			return xQueueSend(handle, &item, detail::maximum(1U, ticks)) == pdTRUE;
 		}
 
 		bool push(const T& item, unsigned int msecs, unsigned int& remainder)
@@ -436,8 +476,9 @@ namespace frt
 			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
 			remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
 
-			if (xQueueSend(handle, &item, max(1U, ticks)) == pdTRUE) {
+			if (xQueueSend(handle, &item, detail::maximum(1U, ticks)) == pdTRUE) {
 				remainder = 0;
+
 				return true;
 			}
 
@@ -446,7 +487,7 @@ namespace frt
 
 		void preparePushFromInterrupt()
 		{
-			higher_priority_task_woken_from_push = 0;
+			higher_priority_task_woken_from_push = pdFALSE;
 		}
 
 		bool pushFromInterrupt(const T& item)
@@ -470,7 +511,7 @@ namespace frt
 		{
 			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
 
-			return xQueueReceive(handle, &item, max(1U, ticks)) == pdTRUE;
+			return xQueueReceive(handle, &item, detail::maximum(1U, ticks)) == pdTRUE;
 		}
 
 		bool pop(T& item, unsigned int msecs, unsigned int& remainder)
@@ -479,8 +520,9 @@ namespace frt
 			const TickType_t ticks = msecs / portTICK_PERIOD_MS;
 			remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
 
-			if (xQueueReceive(handle, &item, max(1U, ticks)) == pdTRUE) {
+			if (xQueueReceive(handle, &item, detail::maximum(1U, ticks)) == pdTRUE) {
 				remainder = 0;
+
 				return true;
 			}
 
@@ -489,7 +531,7 @@ namespace frt
 
 		void preparePopFromInterrupt()
 		{
-			higher_priority_task_woken_from_pop = 0;
+			higher_priority_task_woken_from_pop = pdFALSE;
 		}
 
 		bool popFromInterrupt(const T& item)

@@ -1,19 +1,29 @@
 # frt - Flössie's ready (FreeRTOS) threading
 
-frt is an object-oriented wrapper around FreeRTOS tasks, mutexes, semaphores, and queues. It provides the basic tools for a clean multithreading approach based on the [Arduino_FreeRTOS_Library](https://github.com/feilipu/Arduino_FreeRTOS_Library) with focus on static allocation, so you know your SRAM demands at compile time.
+`frt` is an object-oriented wrapper around FreeRTOS tasks, mutexes, semaphores, and queues. It provides the basic tools for a clean multithreading approach based on the [FreeRTOS kernel](https://github.com/FreeRTOS/FreeRTOS-Kernel) with focus on static allocation.
 
-This will compile just fine with the stock [Arduino_FreeRTOS_Library](https://github.com/feilipu/Arduino_FreeRTOS_Library), but if you want the advantages of static allocation you are welcome to try my [`minimal-static`](https://github.com/Floessie/Arduino_FreeRTOS_Library/tree/minimal-static) branch with frt.
+The wrapper was originally geared towards the [Arduino_FreeRTOS_Library](https://github.com/feilipu/Arduino_FreeRTOS_Library), but can now be used universally with FreeRTOS (see [below](#cmake-integration)).
 
 ## Implementation
 
-Just take a look at [`frt.h`](https://github.com/Floessie/frt/blob/master/src/frt.h). It contains the whole wrapper in about 500 lines of C++ code.
+Just take a look at [`frt.h`](https://github.com/Floessie/frt/blob/master/src/frt.h). It contains the whole wrapper in about 550 lines of C++ code.
 
-## Examples
+## Arduino examples
 
 * [`Blink_AnalogRead.ino`](https://github.com/Floessie/frt/blob/master/examples/Blink_AnalogRead/Blink_AnalogRead.ino): Like the classic [Arduino_FreeRTOS_Library example](https://github.com/feilipu/Arduino_FreeRTOS_Library/blob/master/examples/Blink_AnalogRead/Blink_AnalogRead.ino) this one blinks the builtin LED in one task and prints the value of `A0` in another task. The `loop()` is a bit more sophisticated, as it stops one task after five seconds and prints some statistics.
 * [`Queue.ino`](https://github.com/Floessie/frt/blob/master/examples/Queue/Queue.ino): Shows two tasks communicating via a queue at full speed. There's a monitoring task and also a mutex involved. This example invites you to play with priorities and optimize the data flow for lower latencies.
 * [`QueueISR.ino`](https://github.com/Floessie/frt/blob/master/examples/QueueISR/QueueISR.ino): Asynchronous ADC via ISR and data transfer to task with a queue. And there's also a monitoring task for fun.
 * [`CriticalSection.ino`](https://github.com/Floessie/frt/blob/master/examples/CriticalSection/CriticalSection.ino): Asynchronous ADC via ISR and data transfer to task using *direct to task notification* and a critical section.
+
+## CMake integration
+
+To use `frt` in your FreeRTOS project (independent of Arduino) add it as a `git` submodule and extend your main `CMakeLists.txt` with:
+
+```cmake
+add_subdirectory(frt) # … or wherever you placed it
+
+target_link_libraries(${PROJECT_NAME} … frt)
+```
 
 ## API
 
@@ -82,6 +92,7 @@ Mutexes in FreeRTOS can't be used from ISRs. See `frt::Task::beginCriticalSectio
 A `frt::Mutex` has a dead simple interface:
 * `lock()`: Locks the mutex.
 * `unlock()`: Unlocks the mutex.
+* `tryLock()`: Tries to lock the mutex and returns `false` if that failed. There is also a `try_lock()` function with the same semantics that can be used with [`std::scoped_lock<>`](https://en.cppreference.com/w/cpp/thread/scoped_lock).
 
 ### Semaphore
 
@@ -139,8 +150,8 @@ Here's the interface of `frt::Queue`:
 ## Remarks about the API
 
 Maybe you miss some functions from the API. If so, there might be several reasons why they are missing:
-* Values that are specified by you or your Arduino_FreeRTOS_Library configuration aren't exposed because you already know them.
-* A wrapper for [`vTaskDelayUntil()`](https://www.freertos.org/vtaskdelayuntil.html) isn't available, as this would mean exposing the *tick* while `frt` tries its best to hide it. You can use `millis()` to determine if you missed a deadline or if there's enough time left for a `frt::Task::msleep()` as long as timer 0 wasn't stopped in the meantime.
+* Values that are specified by you or your FreeRTOS configuration aren't exposed because you already know them.
+* A wrapper for [`vTaskDelayUntil()`](https://www.freertos.org/vtaskdelayuntil.html) isn't available, as this would mean exposing the *tick* while `frt` tries its best to hide it. On Arduino you can use `millis()` to determine if you missed a deadline or if there's enough time left for a `frt::Task::msleep()` as long as timer 0 wasn't stopped in the meantime.
 * The FreeRTOS function is too special or the problem can be solved by other means.
 * I simply didn't deem the function to be important enough.
 
